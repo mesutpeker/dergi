@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>E-Dergi Okuyucu</title>
+    <title>3D E-Dergi Okuyucu</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -14,102 +15,63 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
             min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 20px;
+            overflow: hidden;
         }
 
         .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
             text-align: center;
             color: white;
-            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(0,0,0,0.3);
+            backdrop-filter: blur(10px);
+            z-index: 100;
         }
 
         .header h1 {
-            font-size: 2.5em;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-            margin-bottom: 10px;
+            font-size: 2em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
         }
 
-        .container {
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            padding: 20px;
-            max-width: 1200px;
+        #canvas-container {
             width: 100%;
-        }
-
-        .book-container {
-            perspective: 2000px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 600px;
+            height: 100vh;
             position: relative;
-            margin-bottom: 30px;
-        }
-
-        .page-wrapper {
-            position: relative;
-            width: 800px;
-            height: 600px;
-            transform-style: preserve-3d;
-        }
-
-        .page {
-            position: absolute;
-            width: 50%;
-            height: 100%;
-            background: white;
-            box-shadow: 0 0 20px rgba(0,0,0,0.2);
-            transition: transform 0.8s ease;
-            transform-origin: left center;
-            backface-visibility: hidden;
-        }
-
-        .page.left {
-            left: 0;
-            border-right: 1px solid #ddd;
-        }
-
-        .page.right {
-            right: 0;
-            border-left: 1px solid #ddd;
-        }
-
-        .page canvas {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-        }
-
-        .page.flipping {
-            transform: rotateY(-180deg);
-            z-index: 10;
         }
 
         .controls {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
             display: flex;
-            justify-content: center;
+            gap: 15px;
             align-items: center;
-            gap: 20px;
+            background: rgba(255,255,255,0.95);
+            padding: 20px 30px;
+            border-radius: 50px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            z-index: 100;
             flex-wrap: wrap;
+            justify-content: center;
         }
 
         button {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
-            padding: 12px 30px;
+            padding: 12px 25px;
             border-radius: 25px;
-            font-size: 16px;
+            font-size: 15px;
             cursor: pointer;
             transition: all 0.3s ease;
             box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            font-weight: 600;
         }
 
         button:hover:not(:disabled) {
@@ -118,29 +80,36 @@
         }
 
         button:disabled {
-            opacity: 0.5;
+            opacity: 0.4;
             cursor: not-allowed;
         }
 
         .page-info {
-            font-size: 18px;
+            font-size: 16px;
             color: #333;
-            font-weight: 500;
+            font-weight: 600;
+            padding: 0 10px;
         }
 
         .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
             text-align: center;
+            color: white;
+            z-index: 200;
+            background: rgba(0,0,0,0.8);
             padding: 40px;
-            color: #667eea;
-            font-size: 20px;
+            border-radius: 20px;
         }
 
         .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #667eea;
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top: 4px solid white;
             border-radius: 50%;
-            width: 40px;
-            height: 40px;
+            width: 50px;
+            height: 50px;
             animation: spin 1s linear infinite;
             margin: 20px auto;
         }
@@ -150,185 +119,385 @@
             100% { transform: rotate(360deg); }
         }
 
-        .zoom-controls {
-            display: flex;
-            gap: 10px;
-            align-items: center;
+        .instructions {
+            position: fixed;
+            top: 100px;
+            right: 20px;
+            background: rgba(255,255,255,0.95);
+            padding: 20px;
+            border-radius: 15px;
+            font-size: 14px;
+            color: #333;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+            max-width: 250px;
+        }
+
+        .instructions h3 {
+            margin-bottom: 10px;
+            color: #667eea;
+        }
+
+        .instructions p {
+            margin: 5px 0;
+            line-height: 1.6;
         }
 
         @media (max-width: 768px) {
-            .page-wrapper {
-                width: 100%;
-                height: 400px;
-            }
-
             .header h1 {
-                font-size: 1.8em;
+                font-size: 1.5em;
+            }
+            
+            .controls {
+                bottom: 10px;
+                padding: 15px 20px;
+                gap: 10px;
             }
 
             button {
                 padding: 10px 20px;
-                font-size: 14px;
+                font-size: 13px;
+            }
+
+            .instructions {
+                display: none;
             }
         }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>📖 E-Dergi Okuyucu</h1>
-        <p>Sayfa çevirme efekti ile okuma deneyimi</p>
+        <h1>📖 3D E-Dergi Okuyucu</h1>
     </div>
 
-    <div class="container">
-        <div id="loading" class="loading">
-            <div class="spinner"></div>
-            <p>E-dergi yükleniyor...</p>
-        </div>
+    <div class="instructions">
+        <h3>🎮 Kontroller</h3>
+        <p>🖱️ <strong>Sürükle:</strong> Kitabı döndür</p>
+        <p>⬅️➡️ <strong>Ok tuşları:</strong> Sayfa çevir</p>
+        <p>🖱️ <strong>Tekerlek:</strong> Yakınlaştır</p>
+    </div>
 
-        <div id="bookContainer" class="book-container" style="display: none;">
-            <div class="page-wrapper">
-                <div class="page left" id="leftPage">
-                    <canvas id="leftCanvas"></canvas>
-                </div>
-                <div class="page right" id="rightPage">
-                    <canvas id="rightCanvas"></canvas>
-                </div>
-            </div>
-        </div>
+    <div id="loading" class="loading">
+        <div class="spinner"></div>
+        <p style="font-size: 18px;">E-dergi yükleniyor...</p>
+    </div>
 
-        <div class="controls" id="controls" style="display: none;">
-            <button id="prevBtn" onclick="previousPage()">◀ Önceki</button>
-            <div class="page-info">
-                Sayfa <span id="currentPage">1</span> / <span id="totalPages">0</span>
-            </div>
-            <button id="nextBtn" onclick="nextPage()">Sonraki ▶</button>
-            <div class="zoom-controls">
-                <button onclick="zoomOut()">🔍−</button>
-                <button onclick="zoomIn()">🔍+</button>
-            </div>
+    <div id="canvas-container"></div>
+
+    <div class="controls" id="controls" style="display: none;">
+        <button id="prevBtn" onclick="previousPage()">◀ Önceki</button>
+        <div class="page-info">
+            Sayfa <span id="currentPage">1-2</span> / <span id="totalPages">0</span>
         </div>
+        <button id="nextBtn" onclick="nextPage()">Sonraki ▶</button>
+        <button onclick="resetView()">🔄 Sıfırla</button>
     </div>
 
     <script>
-        // PDF.js worker yolu
+        // PDF.js worker
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-        // PDF dosyanızın yolu - bu yolu kendi PDF dosyanızın yolu ile değiştirin
         const PDF_URL = 'dergi.pdf';
 
+        let scene, camera, renderer;
+        let book, leftPage, rightPage;
         let pdfDoc = null;
         let currentPageNum = 1;
-        let scale = 1.5;
         let isFlipping = false;
+        let isDragging = false;
+        let previousMousePosition = { x: 0, y: 0 };
 
-        // PDF'i yükle
+        // Three.js sahneyi oluştur
+        function initThreeJS() {
+            const container = document.getElementById('canvas-container');
+            
+            // Sahne
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x1e3c72);
+
+            // Kamera
+            camera = new THREE.PerspectiveCamera(
+                45,
+                window.innerWidth / window.innerHeight,
+                0.1,
+                1000
+            );
+            camera.position.set(0, 0, 8);
+            camera.lookAt(0, 0, 0);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            container.appendChild(renderer.domElement);
+
+            // Işıklar
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(5, 5, 5);
+            directionalLight.castShadow = true;
+            scene.add(directionalLight);
+
+            const spotLight = new THREE.SpotLight(0xffffff, 0.5);
+            spotLight.position.set(-5, 5, 5);
+            scene.add(spotLight);
+
+            // Kitap grubu
+            book = new THREE.Group();
+            scene.add(book);
+
+            // Sayfaları oluştur
+            createPages();
+
+            // Mouse kontrolleri
+            renderer.domElement.addEventListener('mousedown', onMouseDown);
+            renderer.domElement.addEventListener('mousemove', onMouseMove);
+            renderer.domElement.addEventListener('mouseup', onMouseUp);
+            renderer.domElement.addEventListener('wheel', onWheel);
+
+            // Touch kontrolleri
+            renderer.domElement.addEventListener('touchstart', onTouchStart);
+            renderer.domElement.addEventListener('touchmove', onTouchMove);
+            renderer.domElement.addEventListener('touchend', onTouchEnd);
+
+            // Window resize
+            window.addEventListener('resize', onWindowResize);
+
+            // Animasyon
+            animate();
+        }
+
+        // Sayfaları oluştur
+        function createPages() {
+            const pageWidth = 3;
+            const pageHeight = 4;
+
+            // Sol sayfa
+            const leftGeometry = new THREE.PlaneGeometry(pageWidth, pageHeight);
+            const leftMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0xffffff,
+                side: THREE.DoubleSide
+            });
+            leftPage = new THREE.Mesh(leftGeometry, leftMaterial);
+            leftPage.position.x = -pageWidth / 2;
+            leftPage.castShadow = true;
+            leftPage.receiveShadow = true;
+            book.add(leftPage);
+
+            // Sağ sayfa
+            const rightGeometry = new THREE.PlaneGeometry(pageWidth, pageHeight);
+            const rightMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0xffffff,
+                side: THREE.DoubleSide
+            });
+            rightPage = new THREE.Mesh(rightGeometry, rightMaterial);
+            rightPage.position.x = pageWidth / 2;
+            rightPage.castShadow = true;
+            rightPage.receiveShadow = true;
+            book.add(rightPage);
+
+            // Kitap kapağı efekti
+            const spineGeometry = new THREE.BoxGeometry(0.1, pageHeight, 0.2);
+            const spineMaterial = new THREE.MeshStandardMaterial({ color: 0x8b4513 });
+            const spine = new THREE.Mesh(spineGeometry, spineMaterial);
+            spine.castShadow = true;
+            book.add(spine);
+        }
+
+        // PDF yükle
         async function loadPDF() {
             try {
                 pdfDoc = await pdfjsLib.getDocument(PDF_URL).promise;
                 document.getElementById('totalPages').textContent = pdfDoc.numPages;
                 document.getElementById('loading').style.display = 'none';
-                document.getElementById('bookContainer').style.display = 'flex';
                 document.getElementById('controls').style.display = 'flex';
                 
-                renderCurrentPages();
+                await renderCurrentPages();
             } catch (error) {
                 document.getElementById('loading').innerHTML = 
-                    '<p style="color: red;">❌ PDF yüklenirken hata oluştu!</p>' +
-                    '<p style="font-size: 14px; margin-top: 10px;">Lütfen "dergi.pdf" dosyasını aynı dizine eklediğinizden emin olun.</p>';
+                    '<p style="color: #ff6b6b;">❌ PDF yüklenirken hata oluştu!</p>' +
+                    '<p style="font-size: 14px; margin-top: 10px;">Lütfen "dergi.pdf" dosyasını aynı dizine ekleyin.</p>';
                 console.error('PDF yükleme hatası:', error);
             }
         }
 
         // Sayfaları render et
         async function renderCurrentPages() {
-            if (isFlipping) return;
-
-            // Sol sayfa
-            if (currentPageNum > 0) {
-                await renderPage(currentPageNum, 'leftCanvas');
+            if (currentPageNum <= pdfDoc.numPages) {
+                await renderPageToMesh(currentPageNum, leftPage);
             }
-
-            // Sağ sayfa
+            
             if (currentPageNum + 1 <= pdfDoc.numPages) {
-                await renderPage(currentPageNum + 1, 'rightCanvas');
+                await renderPageToMesh(currentPageNum + 1, rightPage);
             }
-
-            updateControls();
+            
+            updatePageInfo();
         }
 
-        // Tek bir sayfayı render et
-        async function renderPage(pageNum, canvasId) {
+        // Bir sayfayı mesh'e render et
+        async function renderPageToMesh(pageNum, mesh) {
             const page = await pdfDoc.getPage(pageNum);
-            const canvas = document.getElementById(canvasId);
-            const ctx = canvas.getContext('2d');
-
+            const scale = 2;
             const viewport = page.getViewport({ scale: scale });
+
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
             canvas.height = viewport.height;
             canvas.width = viewport.width;
 
             await page.render({
-                canvasContext: ctx,
+                canvasContext: context,
                 viewport: viewport
             }).promise;
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+            
+            mesh.material.map = texture;
+            mesh.material.needsUpdate = true;
+        }
+
+        // Sayfa çevirme animasyonu
+        function flipPage(direction) {
+            if (isFlipping) return;
+            isFlipping = true;
+
+            const targetPage = direction === 'next' ? rightPage : leftPage;
+            const startRotation = 0;
+            const endRotation = direction === 'next' ? -Math.PI : Math.PI;
+            const duration = 1000;
+            const startTime = Date.now();
+
+            function animate() {
+                const elapsed = Date.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const easeProgress = 0.5 - Math.cos(progress * Math.PI) / 2;
+
+                targetPage.rotation.y = startRotation + (endRotation - startRotation) * easeProgress;
+
+                if (progress < 1) {
+                    requestAnimationFrame(animate);
+                } else {
+                    targetPage.rotation.y = 0;
+                    isFlipping = false;
+                    renderCurrentPages();
+                }
+            }
+
+            animate();
         }
 
         // Sonraki sayfa
         async function nextPage() {
             if (currentPageNum + 2 <= pdfDoc.numPages && !isFlipping) {
-                isFlipping = true;
-                
-                // Çevirme animasyonu
-                const rightPage = document.getElementById('rightPage');
-                rightPage.classList.add('flipping');
-                
-                setTimeout(async () => {
+                flipPage('next');
+                setTimeout(() => {
                     currentPageNum += 2;
-                    document.getElementById('currentPage').textContent = currentPageNum;
-                    rightPage.classList.remove('flipping');
-                    await renderCurrentPages();
-                    isFlipping = false;
-                }, 800);
+                    updatePageInfo();
+                }, 500);
             }
         }
 
         // Önceki sayfa
         async function previousPage() {
             if (currentPageNum > 1 && !isFlipping) {
-                isFlipping = true;
-                
-                // Çevirme animasyonu
-                const leftPage = document.getElementById('leftPage');
-                leftPage.classList.add('flipping');
-                
-                setTimeout(async () => {
+                flipPage('prev');
+                setTimeout(() => {
                     currentPageNum -= 2;
                     if (currentPageNum < 1) currentPageNum = 1;
-                    document.getElementById('currentPage').textContent = currentPageNum;
-                    leftPage.classList.remove('flipping');
-                    await renderCurrentPages();
-                    isFlipping = false;
-                }, 800);
+                    updatePageInfo();
+                }, 500);
             }
         }
 
-        // Zoom in
-        function zoomIn() {
-            scale += 0.2;
-            renderCurrentPages();
-        }
-
-        // Zoom out
-        function zoomOut() {
-            if (scale > 0.5) {
-                scale -= 0.2;
-                renderCurrentPages();
-            }
-        }
-
-        // Kontrol butonlarını güncelle
-        function updateControls() {
+        // Sayfa bilgisini güncelle
+        function updatePageInfo() {
+            const endPage = Math.min(currentPageNum + 1, pdfDoc.numPages);
+            document.getElementById('currentPage').textContent = `${currentPageNum}-${endPage}`;
             document.getElementById('prevBtn').disabled = currentPageNum <= 1;
             document.getElementById('nextBtn').disabled = currentPageNum + 2 > pdfDoc.numPages;
+        }
+
+        // Görünümü sıfırla
+        function resetView() {
+            book.rotation.set(0, 0, 0);
+            camera.position.set(0, 0, 8);
+            camera.lookAt(0, 0, 0);
+        }
+
+        // Mouse kontrolleri
+        function onMouseDown(e) {
+            isDragging = true;
+            previousMousePosition = { x: e.clientX, y: e.clientY };
+        }
+
+        function onMouseMove(e) {
+            if (!isDragging) return;
+
+            const deltaX = e.clientX - previousMousePosition.x;
+            const deltaY = e.clientY - previousMousePosition.y;
+
+            book.rotation.y += deltaX * 0.01;
+            book.rotation.x += deltaY * 0.01;
+
+            previousMousePosition = { x: e.clientX, y: e.clientY };
+        }
+
+        function onMouseUp() {
+            isDragging = false;
+        }
+
+        function onWheel(e) {
+            e.preventDefault();
+            camera.position.z += e.deltaY * 0.01;
+            camera.position.z = Math.max(4, Math.min(15, camera.position.z));
+        }
+
+        // Touch kontrolleri
+        let touchStartPos = { x: 0, y: 0 };
+
+        function onTouchStart(e) {
+            if (e.touches.length === 1) {
+                isDragging = true;
+                touchStartPos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                previousMousePosition = touchStartPos;
+            }
+        }
+
+        function onTouchMove(e) {
+            if (!isDragging || e.touches.length !== 1) return;
+
+            const deltaX = e.touches[0].clientX - previousMousePosition.x;
+            const deltaY = e.touches[0].clientY - previousMousePosition.y;
+
+            book.rotation.y += deltaX * 0.01;
+            book.rotation.x += deltaY * 0.01;
+
+            previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        }
+
+        function onTouchEnd() {
+            isDragging = false;
+        }
+
+        // Window resize
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // Animasyon döngüsü
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Hafif sallanma efekti
+            if (!isDragging && !isFlipping) {
+                book.rotation.y += 0.001;
+            }
+            
+            renderer.render(scene, camera);
         }
 
         // Klavye kontrolleri
@@ -337,7 +506,8 @@
             if (e.key === 'ArrowLeft') previousPage();
         });
 
-        // PDF'i yükle
+        // Başlat
+        initThreeJS();
         loadPDF();
     </script>
 </body>
